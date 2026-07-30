@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 echo ========================================
 echo  Spam classifier - setup
@@ -31,6 +31,6 @@ echo Instaliram zavisnosti...
 
 echo.
 echo Setup zavrsen.
-echo Pokreni train.bat za treniranje ili run.bat za meni.
+echo Pokreni scripts\train.bat za treniranje ili scripts\run.bat za meni.
 echo.
 pause

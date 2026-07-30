@@ -545,4 +545,81 @@ def get_model(
         )
     
     return model
-    
+
+
+class EncoderClassifier(nn.Module):
+    """Encoder-only transformer for binary/multiclass text classification."""
+
+    def __init__(
+            self,
+            embed: InputEmbeddings,
+            pos: PositionalEncoding,
+            encoder: Encoder,
+            classifier: nn.Linear,
+            pad_token_id: int,
+        ) -> None:
+        super().__init__()
+        self.embed = embed
+        self.pos = pos
+        self.encoder = encoder
+        self.classifier = classifier
+        self.pad_token_id = pad_token_id
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        # mean pooling, 
+        # (batch, 1, 1, seq) mask: 1 = keep, 0 = pad
+        source_mask = (input_ids != self.pad_token_id).unsqueeze(1).unsqueeze(1).int()
+        x = self.embed(input_ids)
+        x = self.pos(x)
+        x = self.encoder(x, source_mask)
+
+        # Mean pool over non-padding tokens
+        mask = (input_ids != self.pad_token_id).unsqueeze(-1).float()
+        pooled = (x * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1.0)
+        return self.classifier(pooled)
+
+
+def build_encoder_classifier(
+        vocab_size: int,
+        context_size: int,
+        num_labels: int = 2,
+        model_dimension: int = 128,
+        number_of_blocks: int = 2,
+        heads: int = 4,
+        dropout: float = 0.1,
+        feed_forward_dimension: int = 512,
+        pad_token_id: int = 1,
+    ) -> EncoderClassifier:
+    """Build a randomly initialized encoder classifier (trained from scratch)."""
+    embed = InputEmbeddings(model_dimension, vocab_size)
+    pos = PositionalEncoding(model_dimension, context_size, dropout)
+
+    encoder_blocks = []
+    for _ in range(number_of_blocks):
+        self_attention = MultiHeadAttentionBlock(model_dimension, heads, dropout)
+        feed_forward = FeedForwardBlock(model_dimension, feed_forward_dimension, dropout)
+        encoder_blocks.append(EncoderBlock(model_dimension, self_attention, feed_forward, dropout))
+
+    encoder = Encoder(model_dimension, nn.ModuleList(encoder_blocks))
+    classifier = nn.Linear(model_dimension, num_labels)
+    model = EncoderClassifier(embed, pos, encoder, classifier, pad_token_id)
+
+    for p in model.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+
+    return model
+
+
+def get_classifier(config: dict, vocab_size: int, pad_token_id: int) -> EncoderClassifier:
+    return build_encoder_classifier(
+        vocab_size=vocab_size,
+        context_size=config["context_size"],
+        num_labels=config["num_labels"],
+        model_dimension=config["model_dimension"],
+        number_of_blocks=config["number_of_blocks"],
+        heads=config["heads"],
+        dropout=config["dropout"],
+        feed_forward_dimension=config["feed_forward_dimension"],
+        pad_token_id=pad_token_id,
+    )

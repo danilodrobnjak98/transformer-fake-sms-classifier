@@ -2,32 +2,37 @@ import argparse
 from pathlib import Path
 
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from tokenizers import Tokenizer
+
+from config import get_config
+from dataset import encode_text
+from model import get_classifier
 
 
 def load_classifier(model_dir: str):
-  tokenizer = AutoTokenizer.from_pretrained(model_dir)
-  model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+  model_dir = Path(model_dir)
+  checkpoint = torch.load(model_dir / "model.pt", map_location="cpu", weights_only=False)
+  tokenizer = Tokenizer.from_file(str(model_dir / "tokenizer.json"))
+  config = checkpoint.get("config") or get_config()
+
+  model = get_classifier(
+    config,
+    checkpoint["vocab_size"],
+    checkpoint["pad_token_id"],
+  )
+  model.load_state_dict(checkpoint["model_state_dict"])
   model.eval()
-  return tokenizer, model
+  return tokenizer, model, config
 
 
 def predict_text(text: str, model_dir: str) -> dict:
-  tokenizer, model = load_classifier(model_dir)
+  tokenizer, model, config = load_classifier(model_dir)
   device = "cuda" if torch.cuda.is_available() else "cpu"
   model.to(device)
 
-  encoded = tokenizer(
-    text,
-    truncation=True,
-    padding=True,
-    max_length=128,
-    return_tensors="pt",
-  )
-  encoded = {key: value.to(device) for key, value in encoded.items()}
-
+  input_ids = encode_text(tokenizer, text, config["context_size"]).unsqueeze(0).to(device)
   with torch.no_grad():
-    logits = model(**encoded).logits
+    logits = model(input_ids)
     probabilities = torch.softmax(logits, dim=-1)[0]
 
   label_id = int(torch.argmax(probabilities).item())
@@ -49,8 +54,8 @@ def main() -> None:
   parser.add_argument("--text", required=True, help="Message text to classify.")
   parser.add_argument(
     "--model-dir",
-    default="outputs/spam_classifier/best_model",
-    help="Path to the fine-tuned model directory.",
+    default="outputs/spam_classifier_scratch/best_model",
+    help="Path to the trained-from-scratch model directory.",
   )
   args = parser.parse_args()
 

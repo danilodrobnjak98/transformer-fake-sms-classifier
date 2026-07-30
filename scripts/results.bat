@@ -1,9 +1,9 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if not exist ".venv\Scripts\python.exe" (
-    echo Virtualno okruzenje ne postoji. Prvo pokreni setup.bat
+    echo Virtualno okruzenje ne postoji. Prvo pokreni scripts\setup.bat
     pause
     exit /b 1
 )
@@ -15,6 +15,6 @@ if errorlevel 1 (
     exit /b 1
 )
 
-start "" "%~dp0results.html"
+start "" "%cd%\results.html"
 echo Otvoren results.html u browseru.
 pause

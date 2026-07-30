@@ -4,18 +4,14 @@ from typing import Dict
 
 import numpy as np
 from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score
-from transformers import EvalPrediction
 
 
-def compute_metrics(eval_pred: EvalPrediction) -> Dict[str, float]:
-  logits, labels = eval_pred
-  predictions = np.argmax(logits, axis=-1)
-
+def compute_metrics_from_arrays(labels: np.ndarray, predictions: np.ndarray) -> Dict[str, float]:
   return {
-    "accuracy": accuracy_score(labels, predictions),
-    "precision": precision_score(labels, predictions, average="binary", zero_division=0),
-    "recall": recall_score(labels, predictions, average="binary", zero_division=0),
-    "f1": f1_score(labels, predictions, average="binary", zero_division=0),
+    "accuracy": float(accuracy_score(labels, predictions)),
+    "precision": float(precision_score(labels, predictions, average="binary", zero_division=0)),
+    "recall": float(recall_score(labels, predictions, average="binary", zero_division=0)),
+    "f1": float(f1_score(labels, predictions, average="binary", zero_division=0)),
   }
 
 

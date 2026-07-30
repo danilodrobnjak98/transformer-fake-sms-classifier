@@ -15,31 +15,6 @@ def load_json(path: Path) -> dict | None:
   return json.loads(path.read_text(encoding="utf-8"))
 
 
-def get_training_validation(trainer_state_path: Path) -> dict | None:
-  state = load_json(trainer_state_path)
-  if not state:
-    return None
-
-  eval_entries = [
-    entry for entry in state.get("log_history", [])
-    if "eval_f1" in entry
-  ]
-  if not eval_entries:
-    return None
-
-  best = max(eval_entries, key=lambda entry: entry["eval_f1"])
-  return {
-    "epoch": best.get("epoch"),
-    "accuracy": best.get("eval_accuracy"),
-    "precision": best.get("eval_precision"),
-    "recall": best.get("eval_recall"),
-    "f1": best.get("eval_f1"),
-    "loss": best.get("eval_loss"),
-    "completed_epochs": state.get("epoch"),
-    "planned_epochs": state.get("num_train_epochs"),
-  }
-
-
 def metric_row(label: str, value: float | None) -> str:
   if value is None:
     return f"<tr><td>{label}</td><td class='muted'>—</td></tr>"
@@ -79,13 +54,6 @@ def generate_html(output_path: Path) -> None:
     raise FileNotFoundError(
       f"Nije pronadjen test izvestaj: {base / 'test_classification_report.json'}"
     )
-
-  trainer_validation = get_training_validation(base / "checkpoint-1906" / "trainer_state.json")
-  if trainer_validation is None:
-    for checkpoint in sorted(base.glob("checkpoint-*")):
-      trainer_validation = get_training_validation(checkpoint / "trainer_state.json")
-      if trainer_validation:
-        break
 
   generated_at = datetime.now().strftime("%d.%m.%Y. %H:%M")
   accuracy = test_report["accuracy"]
@@ -212,7 +180,6 @@ def generate_html(output_path: Path) -> None:
 <body>
   <div class="container">
     <h1>Detekcija spam SMS poruka</h1>
-    <p class="subtitle">Pregled rezultata treniranja — DistilBERT + MENTHOS dataset</p>
 
     <div class="hero card">
       <div class="score">{pct(accuracy)}</div>
@@ -236,10 +203,13 @@ def generate_html(output_path: Path) -> None:
       <div class="card">
         <h2>Model</h2>
         <dl class="meta">
-          <dt>Arhitektura</dt><dd>{config['model_name']}</dd>
+          <dt>Arhitektura</dt><dd>Encoder transformer</dd>
+          <dt>Dimenzija / blokovi / glave</dt><dd>{config['model_dimension']} / {config['number_of_blocks']} / {config['heads']}</dd>
           <dt>Dataset</dt><dd>{config['dataset_name']}</dd>
-          <dt>Max dužina</dt><dd>{config['max_length']} tokena</dd>
+          <dt>Max dužina</dt><dd>{config['context_size']} tokena</dd>
           <dt>Epoha (plan)</dt><dd>{config['num_epochs']}</dd>
+          <dt>Learning rate</dt><dd>{config['learning_rate']}</dd>
+          <dt>Batch size</dt><dd>{config['batch_size']}</dd>
         </dl>
       </div>
     </div>
@@ -268,27 +238,14 @@ def generate_html(output_path: Path) -> None:
           </tr>
         </tbody>
       </table>
+      <div class="meta" style="margin-top: 1rem; line-height: 1.7;">
+        <strong style="color: var(--text);">Formule (F1 po klasama → ukupno):</strong><br>
+        Macro F1 = (F1<sub>ham</sub> + F1<sub>spam</sub>) / 2<br>
+        Weighted F1 = (F1<sub>ham</sub>·n<sub>ham</sub> + F1<sub>spam</sub>·n<sub>spam</sub>) / (n<sub>ham</sub> + n<sub>spam</sub>)<br>
+        <span style="opacity: 0.85;">n = support (broj primera). Kod balansiranog skupa Macro ≈ Weighted.</span>
+      </div>
     </div>
-"""
 
-  if trainer_validation:
-    html += f"""
-    <div class="card">
-      <h2>Validation tokom treninga (najbolja epoha)</h2>
-      <table>
-        {metric_row('Accuracy', trainer_validation.get('accuracy'))}
-        {metric_row('Precision', trainer_validation.get('precision'))}
-        {metric_row('Recall', trainer_validation.get('recall'))}
-        {metric_row('F1', trainer_validation.get('f1'))}
-        {metric_row('Loss', trainer_validation.get('loss'))}
-      </table>
-      <p class="meta" style="margin-top: 0.75rem;">
-        Završeno epoha: {trainer_validation.get('completed_epochs')} / {trainer_validation.get('planned_epochs')}
-      </p>
-    </div>
-"""
-
-  html += f"""
     <p class="footer">Generisano: {generated_at} · Fajl: {output_path.name}</p>
   </div>
 </body>

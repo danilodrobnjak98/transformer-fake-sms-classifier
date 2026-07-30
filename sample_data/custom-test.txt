@@ -1,0 +1,10 @@
+TESTS = [
+  # ham
+  ("Can you pick up milk on your way home? We're out.", "ham"),
+  ("Meeting moved to Thursday at 14:00 in room B12.", "ham"),
+  ("Thanks for the notes from yesterday's lecture, they helped a lot.", "ham"),
+  # spam
+  ("URGENT: Your Netflix account will be closed in 24h. Confirm now: http://netfl1x-secure-login.ru", "spam"),
+  ("You have been selected for a $1000 Amazon gift card. Claim here before midnight!", "spam"),
+  ("Congratulations winner! Reply YES to claim your free iPhone 16 Pro Max package.", "spam"),
+]

@@ -1,15 +1,15 @@
 @echo off
 setlocal EnableDelayedExpansion
-cd /d "%~dp0"
+cd /d "%~dp0.."
 
 if not exist ".venv\Scripts\python.exe" (
-    echo Virtualno okruzenje ne postoji. Prvo pokreni setup.bat
+    echo Virtualno okruzenje ne postoji. Prvo pokreni scripts\setup.bat
     pause
     exit /b 1
 )
 
-if not exist "outputs\spam_classifier\best_model\config.json" (
-    echo Model nije pronadjen. Prvo pokreni train.bat
+if not exist "outputs\spam_classifier_scratch\best_model\model.pt" (
+    echo Model nije pronadjen. Prvo pokreni scripts\train.bat
     pause
     exit /b 1
 )
@@ -26,6 +26,6 @@ if "%MSG%"=="" (
 )
 
 echo.
-".venv\Scripts\python.exe" predict.py --text "%MSG%"
+".venv\Scripts\python.exe" predict.py --text "!MSG!"
 echo.
 pause
